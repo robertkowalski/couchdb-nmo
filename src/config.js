@@ -93,6 +93,8 @@ export function handleResult (data, key) {
       data = {[key]: data};
     }
 
+    console.log(data);
+
     return data;
   }
 
