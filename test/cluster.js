@@ -4,16 +4,20 @@ import nock from 'nock';
 import * as cluster from '../src/cluster.js';
 import nmo from '../src/nmo.js';
 import {createConfigFile} from './common.js';
-import { consoleMock } from './helpers';
+import sinon from 'sinon';
 
 const nmoconf = {nmoconf: __dirname + '/fixtures/randomini'};
+
+function restore (f) {
+  f.restore && f.restore();
+}
 
 describe('cluster - get', () => {
 
   beforeEach(() => {
     createConfigFile();
     return nmo
-      .load(nmoconf)
+      .load(nmoconf);
   });
 
   it('errors on nmoconf', () => {
@@ -261,8 +265,9 @@ describe('cluster - cli', () => {
 
   beforeEach(() => {
     createConfigFile();
+    restore(console.log);
     return nmo
-      .load(nmoconf)
+      .load(nmoconf);
   });
 
   it('adds cluster', () => {
@@ -277,21 +282,17 @@ describe('cluster - cli', () => {
       });
   });
 
-  it('gets cluster', (done) => {
-    console.log = consoleMock((...args) => {
-      if (/rockbert=artischockbert/.test(args[0])) {
-        assert.equal('rockbert=artischockbert\n', args[0]);
-        done();
-      }
-    });
+  it('gets cluster', () => {
+    const spy = sinon.spy(console, 'log');
 
-    return nmo.load({nmoconf: __dirname + '/fixtures/randomini' }).then(() => {
-      return cluster
-        .cli('add', 'rockbert', 'artischockbert', 'foocluster3')
+    return cluster
+      .cli('add', 'rockbert', 'artischockbert', 'foocluster3')
         .then((res) => {
-          return cluster
-            .cli('get', 'foocluster3');
-          });
+          return cluster.cli('get', 'foocluster3');
+        })
+        .then(() => {
+          const msg = console.log.getCall(0).args[0];
+          assert.equal('rockbert=artischockbert\n', msg);
         });
   });
 
@@ -328,12 +329,14 @@ describe('cluster - cli', () => {
       .post('/_cluster_setup')
       .reply(200, {ok: true});
 
-    console.log = consoleMock((...args) => {
-      assert.equal('cluster joined', args[0]);
-    });
+    const spy = sinon.spy(console, 'log');
 
     return cluster
-      .cli('join', 'clustervalidurls');
+      .cli('join', 'clustervalidurls')
+      .then(() => {
+        const msg = console.log.getCall(0).args[0];
+        assert.equal('cluster joined', msg);
+      });
   });
 
   it('returns error on wrong usage', (done) => {

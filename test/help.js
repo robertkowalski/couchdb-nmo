@@ -5,9 +5,11 @@ import help from '../src/help.js';
 import {cli} from '../src/help.js';
 
 import nmo from '../src/nmo.js';
-import { consoleMock } from './helpers';
+import sinon from 'sinon';
 
-const oldConsole = console.log;
+function restore (f) {
+  f.restore && f.restore();
+}
 
 describe('help', () => {
   createConfigFile();
@@ -16,14 +18,18 @@ describe('help', () => {
     return nmo.load({nmoconf: __dirname + '/fixtures/randomini'});
   });
 
-  it('prints available commands', (done) => {
-    console.log = consoleMock((...args) => {
-      assert.ok(/help/.test(args[0]));
-      assert.ok(/isonline/.test(args[0]));
-      done();
-    });
+  afterEach(() => {
+    restore(console.log);
+  });
 
-    help();
+  it('prints available commands', () => {
+      const spy = sinon.spy(console, 'log');
+
+      return help().then(() => {
+        const msg = console.log.getCall(0).args[0];
+        assert.ok(/help/.test(msg));
+        assert.ok(/isonline/.test(msg));
+      });
   });
 
   it('opens manpages', (done) => {

@@ -4,7 +4,11 @@ import nock from 'nock';
 import { createConfigFile } from './common';
 import nmo from '../src/nmo.js';
 import {cli, setConfig, getClusterNodes, buildConfigUrl, getConfig, get, set} from '../src/couch-config.js';
-import { consoleMock } from './helpers';
+import sinon from 'sinon';
+
+function restore (f) {
+  f.restore && f.restore();
+}
 
 describe('couch-config', () => {
   createConfigFile();
@@ -115,6 +119,10 @@ describe('couch-config', () => {
   });
 
   describe('get cmd', () => {
+    afterEach(() => {
+      restore(console.log);
+    });
+
     it('get returns config', () => {
       const nodes = {
         node1: 'http://127.0.0.1'
@@ -164,7 +172,7 @@ describe('couch-config', () => {
         });
     });
 
-    it('get prints config', (done) => {
+    it('get prints config', () => {
       const nodes = {
         node1: 'http://127.0.0.1'
       };
@@ -178,14 +186,12 @@ describe('couch-config', () => {
         .get('/_node/node1/_config/uuid')
         .reply(200, resp);
 
-      console.log = consoleMock(msg => {
+      const spy = sinon.spy(console, 'log');
+      get('cluster', nodes, 'uuid').then(() => {
+        const msg = console.log.getCall(0).args[0];
         assert.ok(/config1/.test(msg));
         assert.ok(/config2/.test(msg));
-
-        done();
       });
-
-      get('cluster', nodes, 'uuid');
     });
   });
 

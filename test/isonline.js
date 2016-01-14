@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { consoleMock } from './helpers';
+import sinon from 'sinon';
 
 import isonline, {cli} from '../src/isonline.js';
 
@@ -10,6 +10,9 @@ import nock from 'nock';
 
 const nmoconf = {nmoconf: __dirname + '/fixtures/randomini'};
 
+function restore (f) {
+  f.restore && f.restore();
+}
 
 describe('isonline', () => {
   common.createConfigFile();
@@ -17,7 +20,7 @@ describe('isonline', () => {
   describe('cli', () => {
 
     beforeEach(() => {
-      return nmo.load(nmoconf)
+      return nmo.load(nmoconf);
     });
 
     it('returns error on no value provided', () => {
@@ -144,48 +147,53 @@ describe('isonline', () => {
 
   describe('more cli', () => {
 
-    it('returns online for online nodes', (done) => {
+    afterEach(() => {
+      restore(console.log);
+    });
+
+    it('returns online for online nodes', () => {
       nock(common.NODE)
         .get('/')
         .reply(200);
 
-      console.log = consoleMock((...args) => {
-        assert.ok(/online/.test(args[1]), 'returns online for online nodes');
-        done();
-      });
-
+      const spy = sinon.spy(console, 'log');
       nmo.load({nmoconf: __dirname + '/fixtures/randomini', json: false})
         .then(() => {
-          cli(common.NODE);
-      });
-    });
-
-    it('returns offline for offline nodes', (done) => {
-      console.log = consoleMock((...args) => {
-        assert.ok(/offline/.test(args[1]), 'returns offline for online nodes');
-        done();
-      });
-
-      nmo.load({nmoconf: __dirname + '/fixtures/randomini'})
+          return cli(common.NODE);
+        })
         .then(() => {
-          cli('http://exampleneverexists');
+          const args = console.log.getCall(0);
+          assert.ok(/online/.test(args[1]), 'returns online for online nodes');
         });
     });
 
-    it('can output json', (done) => {
+    it('returns offline for offline nodes', () => {
+
+      const spy = sinon.spy(console, 'log');
+      nmo.load({nmoconf: __dirname + '/fixtures/randomini'})
+        .then(() => {
+          return cli('http://exampleneverexists');
+        })
+        .then(() => {
+          const args = console.log.getCall(0);
+          assert.ok(/offline/.test(args[1]), 'returns offline for online nodes');
+        });
+    });
+
+    it('can output json', () => {
       nock(common.NODE)
         .get('/')
         .reply(200);
 
-      console.log = consoleMock((...args) => {
-        assert.deepEqual({ [common.NODE]: true }, args[0]);
-        done();
-      });
-
+      const spy = sinon.spy(console, 'log');
       nmo.load({nmoconf: __dirname + '/fixtures/randomini', json: true})
         .then(() => {
           cli(common.NODE);
-      });
+        })
+        .then(() => {
+          const msg = console.log.getCall(0).args[0];
+          assert.deepEqual({ [common.NODE]: true }, msg);
+        });
     });
   });
 });

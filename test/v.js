@@ -1,10 +1,14 @@
 import assert from 'assert';
-import { consoleMock } from './helpers';
 
 import versionApi, {cli} from '../src/v.js';
 
 import pkg from '../package.json';
 
+import sinon from 'sinon';
+
+function restore (f) {
+  f.restore && f.restore();
+}
 
 describe('api: version', () => {
 
@@ -16,13 +20,16 @@ describe('api: version', () => {
 });
 
 describe('cli: version', () => {
+  afterEach(() => {
+    restore(console.log);
+  });
 
-  it('logs the current version', (done) => {
-    console.log = consoleMock((...args) => {
-      assert.ok(new RegExp(pkg.version, 'ig').test(args[0]));
-      done();
+  it('logs the current version', () => {
+    const spy = sinon.spy(console, 'log');
+
+    return cli().then(() => {
+      const msg = console.log.getCall(0).args[0];
+      assert.ok(new RegExp(pkg.version, 'ig').test(msg));
     });
-
-    return cli();
   });
 });

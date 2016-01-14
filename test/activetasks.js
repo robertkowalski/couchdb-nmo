@@ -4,15 +4,25 @@ import { createConfigFile } from './common';
 
 import nmo from '../src/nmo.js';
 import getActiveTask, { filterTasks, cli }  from '../src/activetasks.js';
-import { consoleMock, mockNodeIsOnline } from './helpers';
+import { mockNodeIsOnline } from './helpers';
+
+import sinon from 'sinon';
 
 describe('activetasks', () => {
   createConfigFile();
-  const url = 'http://127.0.0.11';
+  const url = 'http://fake.invalid';
 
   beforeEach(() => {
     return nmo
       .load({nmoconf: __dirname + '/fixtures/randomini'});
+  });
+
+  afterEach(() => {
+    function restore (f) {
+      f.restore && f.restore();
+    }
+
+    restore(console.log);
   });
 
   describe('cli', () => {
@@ -24,22 +34,23 @@ describe('activetasks', () => {
       });
     });
 
-    it('does json', done => {
+    it('does json', (done) => {
 
       mockNodeIsOnline(url);
       nock(url)
         .get('/_active_tasks')
         .reply(200, []);
 
-      console.log = consoleMock(msg => {
-        done();
-        assert.deepEqual(msg, []);
-      });
+      const spy = sinon.spy(console, 'log');
 
       nmo
         .load({nmoconf: __dirname + '/fixtures/randomini', json: true})
         .then(() => {
-          cli(url);
+          return cli(url);
+        })
+        .then(() => {
+          assert.deepEqual(console.log.getCall(0).args[0], []);
+          done();
         });
 
     });
@@ -58,26 +69,21 @@ describe('activetasks', () => {
       });
     });
 
-    it('returns no active tasks for filter', done => {
-      console.log = consoleMock((msg, log) => {
-        assert.ok(/for that filter/.test(msg));
-        done();
-      });
-
+    it('returns no active tasks for filter', () => {
       mockNodeIsOnline(url);
 
       nock(url)
         .get('/_active_tasks')
         .reply(200, []);
 
-      cli(url, 'filter');
+      const spy = sinon.spy(console, 'log');
+      return cli(url, 'filter').then(() => {
+        assert.ok(/for that filter/.test(console.log.getCall(0).args[0]));
+      });
+
     });
 
-    it('returns no active tasks', done => {
-      console.log = consoleMock(function (msg) {
-        assert.ok(/There are no active tasks/.test(msg));
-        done();
-      });
+    it('returns no active tasks', () => {
 
       mockNodeIsOnline(url)
 
@@ -85,11 +91,15 @@ describe('activetasks', () => {
         .get('/_active_tasks')
         .reply(200, []);
 
-      cli(url);
+      const spy = sinon.spy(console, 'log');
+      return cli(url).then(() => {
+        assert.ok(/There are no active tasks/.test(console.log.getCall(0).args[0]));
+      });
+
     });
 
-    it('returns active tasks', done => {
-      const resp = `[{"node":"node1@127.0.0.1","pid":"<0.8331.5>",
+    it('returns active tasks', () => {
+      const resp = `[{"node":"node1@fakey.invalid","pid":"<0.8331.5>",
                     "changes_pending":null,"checkpoint_interval":5000,
                     "checkpointed_source_seq":"1234",
                     "continuous":true,"database":null,
@@ -109,14 +119,15 @@ describe('activetasks', () => {
         .get('/_active_tasks')
         .reply(200, resp);
 
-      console.log = consoleMock(msg => {
+
+      const spy = sinon.spy(console, 'log');
+      return cli(url).then(() => {
+        const msg = console.log.getCall(0).args[0];
+
         if (!/Active/.test(msg)) { return; }
 
         assert.ok(/Active Tasks:/.test(msg));
-        done();
       });
-
-      cli(url);
     });
   });
 

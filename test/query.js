@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { consoleMock, mockNodeIsOnline } from './helpers';
+import { mockNodeIsOnline } from './helpers';
 
 import { cli, run, createIndex } from '../src/query.js';
 

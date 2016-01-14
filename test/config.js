@@ -4,7 +4,7 @@ import * as config from '../src/config.js';
 
 import ini from 'ini';
 import fs from 'fs';
-import { consoleMock } from './helpers';
+import sinon from 'sinon';
 
 const data = `[clusterone]
 node0=http://127.0.0.1
@@ -35,6 +35,10 @@ z=zmeister
 j=janjuleschlie
 mussman=dermussmaen
 `;
+
+function restore (f) {
+  f.restore && f.restore();
+}
 
 describe('config', () => {
 
@@ -151,6 +155,10 @@ describe('config', () => {
       done();
     });
 
+    afterEach(() => {
+      restore(console.log);
+    });
+
    it('it can get the whole config', () => {
       return config.load({nmoconf: __dirname + '/fixtures/randomini'})
         .then((res) => {
@@ -160,84 +168,103 @@ describe('config', () => {
         });
     });
 
-    it('will print the whole config as ini', (done) => {
+    it('will print the whole config as ini', () => {
 
-      console.log = consoleMock((...args) => {
-        assert.equal(data, args[0]);
-        done();
-      });
+      const spy = sinon.spy(console, 'log');
 
       return config.load({nmoconf: __dirname + '/fixtures/randomini'})
         .then((res) => {
           return config.cli('get')
+        })
+        .then(() => {
+          const msg = console.log.getCall(0).args[0];
+          assert.equal(data, msg);
         });
     });
 
-    it('will print the whole config as JSON, if json = true', (done) => {
-
-      console.log = consoleMock((...args) => {
-        assert.deepEqual(jsonData, args[0]);
-        done();
-      });
+    it('will print the whole config as JSON, if json = true', () => {
+      const spy = sinon.spy(console, 'log');
 
       return config.load({nmoconf: __dirname + '/fixtures/randomini', json: true})
         .then((res) => {
           return config.cli('get');
+        })
+        .then((res) => {
+          const msg = console.log.getCall(0).args[0];
+          assert.deepEqual(jsonData, msg);
+          assert.deepEqual(jsonData, res);
         });
     });
 
     it('it can handle sections in the config', () => {
 
+      const spy = sinon.spy(console, 'log');
+
       return config.load({nmoconf: __dirname + '/fixtures/randomini'})
         .then((res) => {
-          return config.cli('get', 'gang').then((result) => {
-            assert.deepEqual(jsonData.gang, result);
-          });
+          return config.cli('get', 'gang');
+        })
+        .then((res) => {
+          const msg = console.log.getCall(0).args[0];
+          assert.deepEqual('rocko=artischocko\nz=zmeister\nj=janjuleschlie\nmussman=dermussmaen\n', msg);
+          assert.deepEqual(jsonData.gang, res);
         });
     });
 
-    it('will print the gang config as ini', (done) => {
+    it('will print the gang config as ini', () => {
 
-      console.log = consoleMock((...args) => {
-        assert.equal(gangConf, args[0]);
-        done();
-      });
+      const spy = sinon.spy(console, 'log');
 
-      config.load({nmoconf: __dirname + '/fixtures/randomini'})
+      return config.load({nmoconf: __dirname + '/fixtures/randomini'})
         .then((res) => {
-          config.cli('get', 'gang');
+          return config.cli('get', 'gang');
+        }).then(() => {
+          const msg = console.log.getCall(0).args[0];
+          assert.equal(gangConf, msg);
         });
     });
 
     it('it can handle sections with keys in the config', () => {
+
+      const spy = sinon.spy(console, 'log');
+
       return config.load({nmoconf: __dirname + '/fixtures/randomini', json: true})
         .then((res) => {
           return config.cli('get', 'gang', 'rocko');
         })
         .then((result) => {
+          const msg = console.log.getCall(0).args[0];
+          assert.deepEqual({rocko: 'artischocko'}, msg);
           assert.deepEqual({rocko: 'artischocko'}, result);
         });
     });
 
     it('will print the gang member', () => {
 
+      const spy = sinon.spy(console, 'log');
+
       return config.load({nmoconf: __dirname + '/fixtures/randomini'})
         .then((res) => {
           return config.cli('get', 'gang', 'rocko');
         })
         .then(res => {
+          const msg = console.log.getCall(0).args[0];
+          assert.equal('artischocko', msg);
           assert.equal('artischocko', res);
         });
     });
 
     it('will print the gang member as JSON, if json = true', () => {
 
+      const spy = sinon.spy(console, 'log');
+
       return config.load({nmoconf: __dirname + '/fixtures/randomini', json: true})
         .then((res) => {
           return config.cli('get', 'gang', 'rocko');
         })
         .then(res => {
-          console.log('res', res);
+          const msg = console.log.getCall(0).args[0];
+          assert.deepEqual({rocko: 'artischocko'}, msg);
           assert.deepEqual({rocko: 'artischocko'}, res);
         });
     });
